@@ -11,7 +11,7 @@ class SlidingWindowUCBStrategy(MortyRescueStrategy):
     Adaptively balances exploration and exploitation for non-stationary rewards.
     """
 
-    def __init__(self, client: SphinxAPIClient, exploration_coef: float = 1.5, window_size: int = 10):
+    def __init__(self, client: SphinxAPIClient, exploration_coef: float = 2.0, window_size: int = 100):
         super().__init__(client)
         self.exploration_coef = exploration_coef
         self.window_size = window_size
@@ -86,4 +86,4 @@ class SlidingWindowUCBStrategy(MortyRescueStrategy):
 # Example usage
 if __name__ == "__main__":
     from strategy import run_strategy  # adjust import if needed
-    run_strategy(SlidingWindowUCBStrategy, explore_trips=60)
+    run_strategy(SlidingWindowUCBStrategy, explore_trips=3)
