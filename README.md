@@ -1,137 +1,143 @@
-# Save Jessica - Morty Express Challenge
+#  Strategies to Save the Morties  
+### README – 
 
-This project helps you interact with the [Sphinx Morty Express Challenge](https://challenge.sphinxhq.com/).
+## INFOS
 
-## Challenge Overview
+NOMS et LOGIN : Ismail Hatti : H4TT1_  //  Sekkat Idriss Mohammed : imsekkat
+API TOKENS : 7800892765d2da5fd9c73ae51e358fede5428ddd // ce8951b41146f1b03e4385caed60221b824407c2
 
-Your goal is to send 1000 Morties from the Citadel to Planet Jessica through one of three intermediate planets:
+Best performance : 82.4 % (PeriodStrategyV2)
 
-- **Planet A (index=0)**: "On a Cob" Planet
-- **Planet B (index=1)**: Cronenberg World
-- **Planet C (index=2)**: The Purge Planet
 
-The risk for each planet changes dynamically based on the number of trips taken. Your objective is to maximize the number of Morties who arrive safely!
 
-### The Twist
 
-The survival probability for each planet **changes over time** based on the number of trips taken. This is the key to the challenge!
+## Introduction
 
-## Getting Started
+Throughout this project, We progressively implemented and compared several reinforcement-learning inspired algorithms.  
+This README summarizes each strategy: intuition, strengths, weaknesses, and the motivation behind each progression.
+Note : all our strategies are implementef in the strategies fold.
+---
 
-### 1. Install Dependencies
+# 1. UCB (Non-contextual baseline)
 
-```bash
-pip install -r requirements.txt
-```
+###  Intuition
+Use classical **UCB**, treating each planet as a stationary arm.
 
-### 2. Get Your API Token
+###  Observations
+- Simple baseline  
+- Completely ignores periodicity  
+- Reacts slowly to changes
 
-1. Visit <https://challenge.sphinxhq.com/>
-2. Request a token with your name and email
-3. Create .env file
 
-```bash
-echo "SPHINX_API_TOKEN=your_token_here" > .env
-```
 
-### 3. Run the Example
+###  Limitations
+Assumes stationarity. The environment is periodic → UCB is too blind.
 
-```bash
-python example.py
-```
+---
 
-### Console Output
+# 2. LinUCB — First contextual approach
 
-You'll see survival rates for each planet:
+###  Intuition
+Model reward as a *linear* function of time using a contextual bandit.
 
-```text
-"On a Cob" Planet:
-  Survival Rate: 67.50%
-  
-Cronenberg World:
-  Survival Rate: 68.20%
-  
-The Purge Planet:
-  Survival Rate: 65.80%
-```
+###  Observations
+- Attempt to add time context  
+- Linear model cannot capture sinusoidal oscillations
 
-### Visualizations
 
-Several plots will appear showing:
+###  Limitations
+Linear relation between t and p(t) is false.
 
-1. **Survival rates over time** - How each planet performs as trips increase
-2. **Overall comparison** - Bar chart comparing planets
-3. **Moving average** - Trends in survival rates
-4. **Risk evolution** - How risk changes (early vs late trips)
-5. **Episode summary** - Complete dashboard
+---
 
-## Project Structure
+# 3. LinUCBv2 — Adding sinusoidal features
 
-- `api_client.py` - API client with all endpoint functions
-- `data_collector.py` - Functions to collect and analyze data
-- `visualizations.py` - Functions to visualize challenge data
-- `example.py` - Example usage script
-- `strategy.py` - Template for building your own strategy
+###  Intuition
+Add handcrafted periodic features:
+- cos(t)
+- sin(t)
 
-## API Functions
+so the linear model can represent oscillations.
 
-The `SphinxAPIClient` class provides:
+###  Observations
+- Better generalization  
+- Still mixes all planets together  
+- Fails on long period T=200
 
-- `start_episode()` - Initialize a new escape attempt
-- `send_morties(planet, morty_count)` - Send Morties through a portal
-- `get_status()` - Check current progress
 
-## Next Steps
+###  Limitations
+Each planet has its own frequency → a global model is not appropriate.
 
-### Option 1: Implement a Strategy
+---
 
-Edit `strategy.py` to create your own strategy:
+# 4. PeriodStrategy — Phase indexed averages
 
-```python
-from strategy import run_strategy, SimpleGreedyStrategy
+###  Intuition
+Use the known period T of each planet and estimate:
+\[
+\text{phase} = t \bmod T
+\]
+Then keep a separate mean for each phase.
 
-# Run a pre-built strategy
-run_strategy(SimpleGreedyStrategy, explore_trips=30)
+###  Observations
+- Strong performance on T=10 and T=20  
+- T=200 extremely sparse → noisy phases
 
-# Or create your own by subclassing MortyRescueStrategy
-```
 
-### Option 2: Custom Script
+###  Limitations
+Sensitive to noise, no smoothing, weak slope detection.
 
-Create your own Python script:
+---
 
-```python
-from api_client import SphinxAPIClient
-from data_collector import DataCollector
+# 5. PeriodStrategyV2 — Improved phase-based model (Best so far)
 
-# Initialize
-client = SphinxAPIClient()
-collector = DataCollector(client)
 
-# Start episode
-client.start_episode()
+###  Improvements
+- 3-point smoothing
+- Slope estimation across 5 phases
+- Balanced variance estimation (Welford)
+- UCB using phase uncertainty
+- Improved discovery: heavy sampling for T=200
+- Robust batch choice: rising → batch=3, stable → batch=2, falling → batch=1
 
-# Your strategy here...
-```
+###  Observations
+- Tracks T=10 and T=20 perfectly  
+- With enough samples, handles T=200 well  
+- Very stable behaviour run after run  
 
-## Checking Your Progress
 
-At any time, check your status:
 
-```python
-status = client.get_status()
-print(f"Saved: {status['morties_on_planet_jessica']}")
-print(f"Lost: {status['morties_lost']}")
-print(f"Remaining: {status['morties_in_citadel']}")
-```
+###  Why it works
+- Directly uses known periodic structure  
+- Local estimation per phase (no global assumptions)  
+- Variance-aware exploration  
+- Slope detection helps exploit rising phases
 
-## API Not Working?
+---
 
-```python
-# Test your connection
-from api_client import SphinxAPIClient
+# 6. Kalman Periodic Model — Fourier + Kalman
 
-client = SphinxAPIClient()
-status = client.get_status()
-print(status)
-```
+###  Intuition
+Represent each planet as:
+\[
+p(t) = a_0 + a_c \cos(\omega t) + a_s \sin(\omega t)
+\]
+Use a Kalman filter to estimate θ = (a0, ac, as).
+
+###  Observations
+- Elegant and mathematically sound  
+- Works well on fast planets  
+- Needs a lot of data for T=200  
+- Very sensitive to hyperparameters (Q/R)
+
+
+
+###  Limitations
+- Q too small → slow, rigid  
+- Q too large → noisy  
+- R too small → overreact  
+- R too large → slow reaction  
+
+Currently less stable than PeriodStrategyV2.
+
+---
