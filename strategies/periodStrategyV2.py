@@ -3,9 +3,6 @@ import math
 from api_client import SphinxAPIClient
 
 
-# ============================================================
-#                     Planet Model
-# ============================================================
 class PlanetModel:
     def __init__(self, T):
         self.T = T
@@ -13,12 +10,11 @@ class PlanetModel:
         self.means = np.full(T, 0.5, dtype=float)
         self.M2 = np.zeros(T, dtype=float)  # for variance tracking
 
-    # ------------ Update mean + variance ------------
     def update(self, phase, reward):
         c = self.counts[phase]
         m = self.means[phase]
 
-        # Welford variance update
+        # welford variance update
         delta = reward - m
         m_new = m + delta / (c + 1)
         self.M2[phase] += delta * (reward - m_new)
@@ -26,7 +22,6 @@ class PlanetModel:
         self.means[phase] = m_new
         self.counts[phase] += 1
 
-    # ------------ Smoothed mean ---------------------
     def smooth_mean(self, phase):
         """3-point smoothing to remove noise (circular)"""
         T = self.T
@@ -40,7 +35,6 @@ class PlanetModel:
     def estimate(self, phase):
         return self.smooth_mean(phase)
 
-    # ------------ 5-point slope ---------------------
     def slope(self, phase):
         """Slope across ±2 phases for stability."""
         T = self.T
@@ -48,16 +42,12 @@ class PlanetModel:
         b = self.smooth_mean((phase + 2) % T)
         return (b - a) / 4
 
-    # ------------ standard deviation ----------------
     def std(self, phase):
         c = self.counts[phase]
         if c < 2:
             return 0.3  # assume high uncertainty
         return math.sqrt(self.M2[phase] / (c - 1))
 
-# ============================================================
-#                   Main Strategy
-# ============================================================
 class PhaseStrategy:
     def __init__(self, client):
         self.client = client
@@ -66,9 +56,6 @@ class PhaseStrategy:
         self.step = 0
         self.morties_sent = 0
 
-    # ----------------------------------------------------------
-    #                       DISCOVERY (Custom per planet)
-    # ----------------------------------------------------------
     def discover_planet(self, p, num_trips):
         """Send exactly `num_trips` trips (1 Morty each) to planet p."""
         print(f"Découverte planète {p} (T={self.T[p]}) avec {num_trips} trips...")
@@ -83,9 +70,6 @@ class PhaseStrategy:
             self.morties_sent += 1
         print(f"  ✔ Planète {p}: {num_trips} trips terminés.")
 
-    # ----------------------------------------------------------
-    #                     UCB Selection
-    # ----------------------------------------------------------
     def ucb_score(self, p, phase, t):
         model = self.models[p]
         mean = model.estimate(phase)
@@ -108,9 +92,7 @@ class PhaseStrategy:
                 best_p = p
         return best_p
 
-    # ----------------------------------------------------------
-    #                   BATCH DECISION
-    # ----------------------------------------------------------
+
     def choose_batch(self, est, slope):
         if est > 0.75:
             return 3
@@ -118,9 +100,6 @@ class PhaseStrategy:
             return 2
         return 1
 
-    # ----------------------------------------------------------
-    #                         RUN
-    # ----------------------------------------------------------
     def run(self):
         print("PhaseStrategy — Custom Discovery (10/15/30)")
 

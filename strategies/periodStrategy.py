@@ -170,7 +170,6 @@ class ImprovedPhaseAwareStrategy:
         status = self.client.get_status()
         morties = status["morties_in_citadel"]
         
-        # ==================== EXPLORATION PHASE ====================
         print("\nPhase 1: Exploration (30 trips - learning phase patterns)")
         for i in range(30):
             if morties <= 0:
@@ -193,7 +192,6 @@ class ImprovedPhaseAwareStrategy:
             conf = detector.confidence
             print(f"   Planet {planet}: Period={period} (confidence: {conf:.2f})")
         
-        # ==================== EXPLOITATION PHASE ====================
         print("\nPhase 2: Exploitation (using learned patterns)")
         step_count = 30
         
@@ -251,8 +249,7 @@ class ImprovedPhaseAwareStrategy:
                 period = self.detectors[planet].confirmed_period or self.detectors[planet].expected_period
                 print(f"[Step {step_count}] Saved: {saved} | P{planet} (phase {phase}/{period}) | "
                       f"Group: {group_size} | Surv: {survival_rate:.2f}")
-        
-        # ==================== FINAL RESULTS ====================
+
         final = self.client.get_status()
         saved = final["morties_on_planet_jessica"]
         rate = saved / 1000 * 100
@@ -292,7 +289,6 @@ class ImprovedPhaseAwareStrategy:
         print("=" * 70)
 
 
-# ==================== MAIN ====================
 if __name__ == "__main__":
     try:
         client = SphinxAPIClient()

@@ -5,10 +5,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from api_client import SphinxAPIClient
 
-# ============================================================
-#        NUMÉROTATION AUTOMATIQUE DES FICHIERS
-# ============================================================
-
 def get_next_run_index():
     """Trouve le prochain numéro de run sous la forme run_XXX.csv."""
     existing = glob.glob("run_*.csv")
@@ -26,11 +22,6 @@ def get_next_run_index():
         return 1
 
     return max(nums) + 1
-
-
-# ============================================================
-#     MODELE KALMAN PÉRIODIQUE POUR UNE PLANÈTE
-# ============================================================
 
 class PeriodicKalmanPlanet:
     """
@@ -123,11 +114,6 @@ class PeriodicKalmanPlanet:
         as_ = float(self.theta["as"])
         return self.omega * (-ac * s + as_ * c)
 
-
-# ============================================================
-#              STRATÉGIE KALMAN PÉRIODIQUE + UCB
-# ============================================================
-
 class PeriodicKalmanStrategy:
     def __init__(self):
         self.client = SphinxAPIClient()
@@ -147,7 +133,6 @@ class PeriodicKalmanStrategy:
         self.morties_sent = 0
         self.log_rows = []
 
-    # --------------------------------------------------------
     def discover_planet(self, p, samples):
         """Phase de découverte: quelques observations sur chaque planète."""
         print(f"Découverte planète {p} ({samples} trips)...")
@@ -183,7 +168,6 @@ class PeriodicKalmanStrategy:
 
         print(f"  → Fin découverte p={p}, total={self.morties_sent} Morties.")
 
-    # --------------------------------------------------------
     def ucb_score(self, p):
         """Score UCB basé sur mean + incertitude sur la probabilité."""
         planet = self.planets[p]
@@ -201,7 +185,6 @@ class PeriodicKalmanStrategy:
 
         return mean + bonus
 
-    # --------------------------------------------------------
     def choose_planet(self):
         best_p = 0
         best_s = -1.0
@@ -212,7 +195,6 @@ class PeriodicKalmanStrategy:
                 best_p = p
         return best_p
 
-    # --------------------------------------------------------
     def choose_batch(self, est, sl):
         """
         Batch en fonction de probabilité & tendance.
@@ -224,7 +206,6 @@ class PeriodicKalmanStrategy:
             return 2
         return 1
 
-    # --------------------------------------------------------
     def run(self):
         print("STRATÉGIE KALMAN PÉRIODIQUE (tuning Q/R + slope analytique)")
 
@@ -278,7 +259,6 @@ class PeriodicKalmanStrategy:
 
         self.save_logs_and_plot()
 
-    # --------------------------------------------------------
     def save_logs_and_plot(self):
         run_id = get_next_run_index()
         csv_name = f"run_{run_id:03d}.csv"
@@ -301,10 +281,6 @@ class PeriodicKalmanStrategy:
         plt.close()
         print(f"Plot sauvegardé : {png_name}")
 
-
-# ============================================================
-#                           MAIN
-# ============================================================
 
 def main():
     client = SphinxAPIClient()

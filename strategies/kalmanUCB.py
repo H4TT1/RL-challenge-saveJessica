@@ -5,12 +5,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from api_client import SphinxAPIClient
 
-# ============================================================
-#        NUMÉROTATION AUTOMATIQUE DES FICHIERS
-# ============================================================
 
 def get_next_run_index():
-    """Trouve le prochain numéro de run sous la forme run_XXX.csv."""
     existing = glob.glob("run_*.csv")
     if not existing:
         return 1
@@ -22,309 +18,220 @@ def get_next_run_index():
         if num.isdigit():
             nums.append(int(num))
 
-    if not nums:
-        return 1
+    return max(nums) + 1 if nums else 1
 
-    return max(nums) + 1
-
-
-# ============================================================
-#     MODELE KALMAN PÉRIODIQUE POUR UNE PLANÈTE
-# ============================================================
 
 class PeriodicKalmanPlanet:
     """
-    Modèle:
-        p(t) ≈ a0 + a_c cos(ω t) + a_s sin(ω t)
-    État: θ = [a0, a_c, a_s]^T
-    Observation: z_t ≈ H_t θ + bruit,  H_t = [1, cos(ω t), sin(ω t)]
+    p(t) = a0 + ac cos(ωt) + as sin(ωt)
+    θ = [a0, ac, as]
     """
-    def __init__(self, T, process_var=0.001, meas_var=0.15):
+
+    def __init__(self, T, process_var=0.01, meas_var=0.08):
         self.T = T
         self.omega = 2 * math.pi / T
 
-        # état initial : offset 0.5, amplitude faible
         self.theta = pd.Series([0.5, 0.0, 0.0], index=["a0", "ac", "as"])
         self.P = 0.5 * pd.DataFrame(
-            [[1.0, 0.0, 0.0],
-             [0.0, 1.0, 0.0],
-             [0.0, 0.0, 1.0]],
-            columns=["a0", "ac", "as"],
+            [[1, 0, 0],
+             [0, 1, 0],
+             [0, 0, 1]],
             index=["a0", "ac", "as"],
+            columns=["a0", "ac", "as"]
         )
 
-        self.Q = process_var * self.P.copy()  # bruit de process
-        self.R = meas_var                     # bruit de mesure scalaire
-
-        self.last_prob = 0.5
+        self.Q = process_var * self.P.copy()
+        self.R = meas_var
 
     def _H(self, t):
-        """Vecteur d'observation H_t pour le temps t."""
-        c = math.cos(self.omega * t)
-        s = math.sin(self.omega * t)
-        return pd.Series([1.0, c, s], index=["a0", "ac", "as"])
+        phi = self.omega * t
+        return pd.Series([1.0, math.cos(phi), math.sin(phi)],
+                         index=["a0", "ac", "as"])
 
     def predict(self):
-        """Kalman prévision: θ ne change pas (process statique), P augmente."""
         self.P = self.P + self.Q
 
     def update(self, t, z):
-        """
-        Mise à jour avec observation z (reward moyen ∈ [0,1]) au temps t.
-        """
-        H = self._H(t)                    # shape (3,)
-        h = float(H @ self.theta)         # prédiction observée
-        # variance prédite de l'observation
+        H = self._H(t)
+        h = float(H @ self.theta)
         S = float(H @ self.P @ H) + self.R
-        # gain de Kalman
-        K = (self.P @ H) / S              # shape (3,)
+        K = (self.P @ H) / S
 
-        # mise à jour état/covariance
-        y = z - h                         # innovation
+        y = z - h
         self.theta = self.theta + K * y
-        
-        # Correction: K et H doivent être transformés en matrices compatibles
-        K_matrix = K.values.reshape(-1, 1)  # (3, 1)
-        H_matrix = H.values.reshape(1, -1)  # (1, 3)
-        
-        # Mise à jour de la matrice de covariance: P = P - K * H * P
-        self.P = self.P - pd.DataFrame(
-            K_matrix @ H_matrix @ self.P.values,
-            index=self.P.index,
-            columns=self.P.columns
+
+        I = pd.DataFrame(
+            [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+            index=["a0", "ac", "as"],
+            columns=["a0", "ac", "as"]
         )
 
-        # clamp léger pour éviter des probs débiles
-        prob = self.prob(t)
-        self.last_prob = prob
+        K_col = K.values.reshape(3, 1)
+        H_row = H.values.reshape(1, 3)
+        KH = pd.DataFrame(K_col @ H_row,
+                          index=["a0", "ac", "as"],
+                          columns=["a0", "ac", "as"])
 
-    def prob(self, t):
-        """Probabilité prédite au temps t."""
+        self.P = (I - KH) @ self.P
+
+    def estimate(self, t):
         H = self._H(t)
-        p = float(H @ self.theta)
-        # on borne dans [0,1]
-        return max(0.01, min(0.99, p))
+        v = float(H @ self.theta)
+        return max(0.01, min(0.99, v))
 
     def prob_var(self, t):
-        """Variance approximative de la probabilité prédite au temps t."""
         H = self._H(t)
         return float(H @ self.P @ H) + self.R
 
-    def estimate(self, t):
-        return self.prob(t)
+    def analytic_slope(self, t):
+        phi = self.omega * t
+        ac = float(self.theta["ac"])
+        as_ = float(self.theta["as"])
+        return self.omega * (-ac * math.sin(phi) + as_ * math.cos(phi))
 
-    def slope(self, t_prev, t_curr):
-        """Approximation slope: diff de prob entre t_prev et t_curr."""
-        p_prev = self.prob(t_prev)
-        p_curr = self.prob(t_curr)
-        return p_curr - p_prev
-
-
-# ============================================================
-#              STRATÉGIE KALMAN PÉRIODIQUE + UCB
-# ============================================================
 
 class PeriodicKalmanStrategy:
     def __init__(self):
         self.client = SphinxAPIClient()
-        # périodes connues
-        self.T = [10, 20, 200]
 
-        # paramètres de process : plus large pour périodes courtes
-        process_vars = [0.01, 0.006, 0.003]
-        meas_var = 0.20
+        self.T = [10, 20, 200]
+        process_vars = [0.03, 0.01, 0.02]
+        meas_vars = [0.08, 0.08, 0.08]
 
         self.planets = [
-            PeriodicKalmanPlanet(self.T[i], process_var=process_vars[i], meas_var=meas_var)
+            PeriodicKalmanPlanet(self.T[i], process_vars[i], meas_vars[i])
             for i in range(3)
         ]
 
-        self.step = 0          # temps = nombre de trips (API calls)
-        self.morties_sent = 0
-
+        self.step = 0
+        self.total_sent = 0
         self.log_rows = []
 
-    # --------------------------------------------------------
     def discover_planet(self, p, samples):
-        """Phase de découverte: quelques observations sur chaque planète."""
-        print(f"Découverte planète {p} ({samples} trips)...")
-
         for _ in range(samples):
-            if self.morties_sent >= 1000:
+            if self.total_sent >= 1000:
                 break
 
             planet = self.planets[p]
             t = self.step
 
-            planet.predict()  # augmente juste la variance
+            planet.predict()
 
-            batch = 1
+            result = self.client.send_morties(p, 1)
+            survived = result["survived"]
+
+            planet.update(t, survived)
+
+            self.log_rows.append({
+                "step": self.step,
+                "planet": p,
+                "estimate": planet.estimate(t),
+                "slope": 0.0,
+                "batch": 1,
+                "survived": survived
+            })
+
+            self.step += 1
+            self.total_sent += 1
+
+    def ucb_score(self, p):
+        planet = self.planets[p]
+        t = self.step
+
+        mean = planet.estimate(t)
+        var = planet.prob_var(t)
+        bonus = 0.6 * math.sqrt(max(var, 1e-6))
+
+        if self.T[p] == 10:
+            bonus *= 0.7
+        elif self.T[p] == 200:
+            bonus *= 1.3
+
+        return mean + bonus
+
+    def choose_planet(self):
+        return max(range(3), key=lambda p: self.ucb_score(p))
+
+    def choose_batch(self, est, slope):
+        if est > 0.75 and slope > 0:
+            return 3
+        if est > 0.60:
+            return 2
+        return 1
+
+    def run(self):
+        self.discover_planet(0, 30)
+        self.discover_planet(1, 30)
+        self.discover_planet(2, 30)
+
+        while self.total_sent < 1000:
+            p = self.choose_planet()
+            planet = self.planets[p]
+            t = self.step
+
+            planet.predict()
+
+            est = planet.estimate(t)
+            sl = planet.analytic_slope(t)
+
+            batch = self.choose_batch(est, sl)
+            batch = min(batch, 1000 - self.total_sent)
+
             result = self.client.send_morties(p, batch)
             survived = result["survived"]
             reward = survived / batch
 
             planet.update(t, reward)
-            est = planet.estimate(t)
-            sl = 0.0  # slope pas vraiment défini pendant découverte précoce
 
             self.log_rows.append({
                 "step": self.step,
-                "sent": self.morties_sent,
                 "planet": p,
-                "estimate": est,
-                "slope": sl,
+                "estimate": planet.estimate(t),
+                "slope": planet.analytic_slope(t),
                 "batch": batch,
                 "survived": survived
             })
 
             self.step += 1
-            self.morties_sent += batch
+            self.total_sent += batch
 
-        print(f"  → Fin découverte p={p}, total={self.morties_sent} Morties.")
+        self.save_logs()
 
-    # --------------------------------------------------------
-    def ucb_score(self, p):
-        """Score UCB basé sur mean + incertitude sur la probabilité."""
-        planet = self.planets[p]
-        t = self.step
-        mean = planet.estimate(t)
-        var = planet.prob_var(t)
-        bonus = 0.8 * math.sqrt(max(var, 1e-6))
-
-        # légère pénalité/bonus possible selon période (optionnel)
-        # ici on met un petit nerf pour T=10 très chaotique
-        if self.T[p] == 10:
-            bonus *= 0.7
-
-        return mean + bonus
-
-    # --------------------------------------------------------
-    def choose_planet(self):
-        best_p = 0
-        best_s = -1.0
-        for p in range(3):
-            s = self.ucb_score(p)
-            if s > best_s:
-                best_s = s
-                best_p = p
-        return best_p
-
-    # --------------------------------------------------------
-    def choose_batch(self, est, sl):
-        # exploiter plus si prob élevée
-        if est > 0.70 and sl >= 0:
-            return 3
-        if est > 0.55:
-            return 2
-        return 1
-
-    # --------------------------------------------------------
-    def run(self):
-        print("STRATÉGIE KALMAN PÉRIODIQUE + UCB")
-
-        # EXPLORATION MINIMALE (5 samples au lieu de 20-40!)
-        # Juste pour initialiser le filtre, UCB fera le reste
-        self.discover_planet(0, samples=5)
-        self.discover_planet(1, samples=5)
-        self.discover_planet(2, samples=5)
-        print(f"Exploration minimale terminée: {self.morties_sent} Morties utilisés")
-        print(f"   Il reste {1000 - self.morties_sent} Morties pour l'exploitation!")
-
-        # -------- EXPLOITATION PRINCIPALE --------
-        while self.morties_sent < 1000:
-            p = self.choose_planet()
-            planet = self.planets[p]
-
-            t_prev = self.step - 1
-            t_curr = self.step
-
-            planet.predict()
-            est_before = planet.estimate(t_curr)
-            sl = planet.slope(t_prev, t_curr) if self.step > 0 else 0.0
-
-            batch = self.choose_batch(est_before, sl)
-            batch = min(batch, 1000 - self.morties_sent)
-            if batch <= 0:
-                break
-
-            result = self.client.send_morties(p, batch)
-            survived = result["survived"]
-            reward = survived / batch
-
-            planet.update(t_curr, reward)
-            est_after = planet.estimate(t_curr)
-            sl_after = planet.slope(t_prev, t_curr) if self.step > 0 else 0.0
-
-            self.log_rows.append({
-                "step": self.step,
-                "sent": self.morties_sent,
-                "planet": p,
-                "estimate": est_after,
-                "slope": sl_after,
-                "batch": batch,
-                "survived": survived
-            })
-
-            self.step += 1
-            self.morties_sent += batch
-
-            if self.morties_sent % 100 == 0 or self.morties_sent >= 1000:
-                print(f"[{self.morties_sent} sent] p={p} est={est_after:.2f} "
-                      f"sl={sl_after:.2f} batch={batch} surv={survived}")
-
-        print(f"Run terminé. {self.morties_sent} Morties envoyés.")
-
-        self.save_logs_and_plot()
-
-    # --------------------------------------------------------
-    def save_logs_and_plot(self):
+    def save_logs(self):
         run_id = get_next_run_index()
         csv_name = f"run_{run_id:03d}.csv"
         png_name = f"run_{run_id:03d}.png"
 
         df = pd.DataFrame(self.log_rows)
         df.to_csv(csv_name, index=False)
-        print(f"CSV sauvegardé : {csv_name}")
 
         plt.figure(figsize=(12, 6))
         plt.plot(df["step"], df["estimate"], label="estimate")
         plt.plot(df["step"], df["slope"], label="slope")
         plt.scatter(df["step"], df["survived"], alpha=0.3, label="survived")
-        plt.title(f"Run {run_id:03d} (Kalman périodique)")
-        plt.xlabel("Step")
-        plt.ylabel("Values")
         plt.legend()
         plt.grid()
+        plt.title(f"Run {run_id:03d}")
         plt.savefig(png_name)
         plt.close()
-        print(f"Plot sauvegardé : {png_name}")
 
+        print(f"Sauvegardé: {csv_name}, {png_name}")
 
-# ============================================================
-#                           MAIN
-# ============================================================
 
 def main():
     client = SphinxAPIClient()
-    print("Nouvelle épisode…")
+    print("Nouvel épisode…")
     client.start_episode()
-    print("OK 1000 Mortys prêts !")
+    print("1000 Mortys prêts.")
 
     strat = PeriodicKalmanStrategy()
     strat.run()
 
     status = client.get_status()
-    saved = status['morties_on_planet_jessica']
-    lost = status['morties_lost']
-    success_rate = saved / 1000
+    saved = status["morties_on_planet_jessica"]
+    lost = status["morties_lost"]
 
-    print("\n" + "=" * 60)
-    print("RÉSULTAT FINAL:")
-    print("=" * 60)
-    print(f" Morties sauvés: {saved}/1000")
-    print(f" Morties perdus: {lost}/1000")
-    print(f" Taux de succès: {success_rate:.1%}")
-    print("=" * 60)
+    print(f"Résultat final: {saved}/1000 sauvés, {lost} perdus")
 
 
 if __name__ == "__main__":
