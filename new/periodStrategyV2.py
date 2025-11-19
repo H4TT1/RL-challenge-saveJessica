@@ -71,7 +71,7 @@ class PhaseStrategy:
     # ----------------------------------------------------------
     def discover_planet(self, p, num_trips):
         """Send exactly `num_trips` trips (1 Morty each) to planet p."""
-        print(f"🔍 Découverte planète {p} (T={self.T[p]}) avec {num_trips} trips...")
+        print(f"Découverte planète {p} (T={self.T[p]}) avec {num_trips} trips...")
         for _ in range(num_trips):
             if self.morties_sent >= 1000:
                 break
@@ -122,7 +122,7 @@ class PhaseStrategy:
     #                         RUN
     # ----------------------------------------------------------
     def run(self):
-        print("🚀 PhaseStrategy — Custom Discovery (10/15/30)")
+        print("PhaseStrategy — Custom Discovery (10/15/30)")
 
         # Custom discovery per planet
         self.discover_planet(0, 0)   # Planet 0: 10 trips
@@ -150,7 +150,7 @@ class PhaseStrategy:
             if self.morties_sent % 100 == 0:
                 print(f"[{self.morties_sent}] p={p} est={est:.3f} sl={sl:.3f} batch={batch} surv={result['survived']}")
 
-        print(f"\n🎯 Fini ! Total = {self.morties_sent} Morties envoyés.")
+        print(f"\nFini ! Total = {self.morties_sent} Morties envoyés.")
 
 
 def main():

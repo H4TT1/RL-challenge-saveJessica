@@ -163,7 +163,7 @@ class ImprovedPhaseAwareStrategy:
         self.high_confidence_threshold = 0.80
         
     def run(self):
-        print("🚀 Improved Phase-Aware Rescue with Adaptive Detection")
+        print("Improved Phase-Aware Rescue with Adaptive Detection")
         print("=" * 70)
         
         self.client.start_episode()
@@ -171,7 +171,7 @@ class ImprovedPhaseAwareStrategy:
         morties = status["morties_in_citadel"]
         
         # ==================== EXPLORATION PHASE ====================
-        print("\n📊 Phase 1: Exploration (30 trips - learning phase patterns)")
+        print("\nPhase 1: Exploration (30 trips - learning phase patterns)")
         for i in range(30):
             if morties <= 0:
                 break
@@ -186,7 +186,7 @@ class ImprovedPhaseAwareStrategy:
             morties = result["morties_in_citadel"]
         
         # Report detected periods
-        print("\n🔍 Detected Periods:")
+        print("\nDetected Periods:")
         for planet in [0, 1, 2]:
             detector = self.detectors[planet]
             period = detector.confirmed_period or detector.expected_period
@@ -194,7 +194,7 @@ class ImprovedPhaseAwareStrategy:
             print(f"   Planet {planet}: Period={period} (confidence: {conf:.2f})")
         
         # ==================== EXPLOITATION PHASE ====================
-        print("\n🎯 Phase 2: Exploitation (using learned patterns)")
+        print("\nPhase 2: Exploitation (using learned patterns)")
         step_count = 30
         
         while morties > 0:
@@ -258,9 +258,9 @@ class ImprovedPhaseAwareStrategy:
         rate = saved / 1000 * 100
         
         print("\n" + "=" * 70)
-        print(f"✅ MISSION COMPLETE")
+        print(f"MISSION COMPLETE")
         print(f"   Morties Saved: {saved} / 1000 ({rate:.1f}%)")
-        print(f"\n📈 Final Phase Statistics:")
+        print(f"\nFinal Phase Statistics:")
         
         for planet in [0, 1, 2]:
             detector = self.detectors[planet]
@@ -299,6 +299,6 @@ if __name__ == "__main__":
         strategy = ImprovedPhaseAwareStrategy(client)
         strategy.run()
     except Exception as e:
-        print(f"❌ Error: {e}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()

@@ -147,7 +147,7 @@ class PeriodicKalmanStrategy:
     # --------------------------------------------------------
     def discover_planet(self, p, samples):
         """Phase de découverte: quelques observations sur chaque planète."""
-        print(f"🔍 Découverte planète {p} ({samples} trips)...")
+        print(f"Découverte planète {p} ({samples} trips)...")
 
         for _ in range(samples):
             if self.morties_sent >= 1000:
@@ -220,14 +220,14 @@ class PeriodicKalmanStrategy:
 
     # --------------------------------------------------------
     def run(self):
-        print("🚀 STRATÉGIE KALMAN PÉRIODIQUE + UCB")
+        print("STRATÉGIE KALMAN PÉRIODIQUE + UCB")
 
         # EXPLORATION MINIMALE (5 samples au lieu de 20-40!)
         # Juste pour initialiser le filtre, UCB fera le reste
         self.discover_planet(0, samples=5)
         self.discover_planet(1, samples=5)
         self.discover_planet(2, samples=5)
-        print(f"✅ Exploration minimale terminée: {self.morties_sent} Morties utilisés")
+        print(f"Exploration minimale terminée: {self.morties_sent} Morties utilisés")
         print(f"   Il reste {1000 - self.morties_sent} Morties pour l'exploitation!")
 
         # -------- EXPLOITATION PRINCIPALE --------
@@ -272,7 +272,7 @@ class PeriodicKalmanStrategy:
                 print(f"[{self.morties_sent} sent] p={p} est={est_after:.2f} "
                       f"sl={sl_after:.2f} batch={batch} surv={survived}")
 
-        print(f"🎯 Run terminé. {self.morties_sent} Morties envoyés.")
+        print(f"Run terminé. {self.morties_sent} Morties envoyés.")
 
         self.save_logs_and_plot()
 
@@ -284,7 +284,7 @@ class PeriodicKalmanStrategy:
 
         df = pd.DataFrame(self.log_rows)
         df.to_csv(csv_name, index=False)
-        print(f"📁 CSV sauvegardé : {csv_name}")
+        print(f"CSV sauvegardé : {csv_name}")
 
         plt.figure(figsize=(12, 6))
         plt.plot(df["step"], df["estimate"], label="estimate")
@@ -297,7 +297,7 @@ class PeriodicKalmanStrategy:
         plt.grid()
         plt.savefig(png_name)
         plt.close()
-        print(f"📊 Plot sauvegardé : {png_name}")
+        print(f"Plot sauvegardé : {png_name}")
 
 
 # ============================================================

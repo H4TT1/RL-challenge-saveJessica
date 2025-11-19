@@ -150,7 +150,7 @@ class PeriodicKalmanStrategy:
     # --------------------------------------------------------
     def discover_planet(self, p, samples):
         """Phase de découverte: quelques observations sur chaque planète."""
-        print(f"🔍 Découverte planète {p} ({samples} trips)...")
+        print(f"Découverte planète {p} ({samples} trips)...")
 
         for _ in range(samples):
             if self.morties_sent >= 1000:
@@ -226,7 +226,7 @@ class PeriodicKalmanStrategy:
 
     # --------------------------------------------------------
     def run(self):
-        print("🚀 STRATÉGIE KALMAN PÉRIODIQUE (tuning Q/R + slope analytique)")
+        print("STRATÉGIE KALMAN PÉRIODIQUE (tuning Q/R + slope analytique)")
 
         # Découverte (un peu plus sur T=200)
         self.discover_planet(0, samples=30)
@@ -274,7 +274,7 @@ class PeriodicKalmanStrategy:
                 print(f"[{self.morties_sent} sent] p={p} est={est_after:.2f} "
                       f"sl={sl_after:.2f} batch={batch} surv={survived}")
 
-        print(f"🎯 Run terminé. {self.morties_sent} Morties envoyés.")
+        print(f"Run terminé. {self.morties_sent} Morties envoyés.")
 
         self.save_logs_and_plot()
 
@@ -286,7 +286,7 @@ class PeriodicKalmanStrategy:
 
         df = pd.DataFrame(self.log_rows)
         df.to_csv(csv_name, index=False)
-        print(f"📁 CSV sauvegardé : {csv_name}")
+        print(f"CSV sauvegardé : {csv_name}")
 
         plt.figure(figsize=(12, 6))
         plt.plot(df["step"], df["estimate"], label="estimate")
@@ -299,7 +299,7 @@ class PeriodicKalmanStrategy:
         plt.grid()
         plt.savefig(png_name)
         plt.close()
-        print(f"📊 Plot sauvegardé : {png_name}")
+        print(f"Plot sauvegardé : {png_name}")
 
 
 # ============================================================
