@@ -1,22 +1,20 @@
 #  Strategies to Save the Morties  
-### README – 
 
 ## INFOS
 
-NOMS et LOGIN : Ismail Hatti : H4TT1_  //  Sekkat Idriss Mohammed : imsekkat
-API TOKENS : 7800892765d2da5fd9c73ae51e358fede5428ddd // ce8951b41146f1b03e4385caed60221b824407c2
-
-Best performance : 82.4 % (PeriodStrategyV2)
-
+### **Noms & Logins**
+- **Ismail Hatti** — `H4TT1_` —`7800892765d2da5fd9c73ae51e358fede5428ddd`
+- **Sekkat Idriss Mohammed** — `imsekkat`—`ce8951b41146f1b03e4385caed60221b824407c2`
 
 
 
 ## Introduction
 
-Throughout this project, We progressively implemented and compared several reinforcement-learning inspired algorithms.  
-This README summarizes each strategy: intuition, strengths, weaknesses, and the motivation behind each progression.
-Note : all our strategies are implementef in the strategies fold.
----
+
+Throughout this project, we progressively implemented and compared several reinforcement-learning–inspired algorithms.  
+This **README** provides an overview of each strategy, including the underlying intuition, strengths, weaknesses, and the motivation behind each improvement.
+
+> **Note:** All strategies are implemented in the **`strategies/`** directory.
 
 # 1. UCB (Non-contextual baseline)
 
@@ -46,7 +44,7 @@ Model reward as a *linear* function of time using a contextual bandit.
 
 
 ###  Limitations
-Linear relation between t and p(t) is false.
+Linear relation between $t$ and $p(t)$ is false.
 
 ---
 
@@ -54,15 +52,15 @@ Linear relation between t and p(t) is false.
 
 ###  Intuition
 Add handcrafted periodic features:
-- cos(t)
-- sin(t)
+- $cos(t)$
+- $sin(t)$
 
 so the linear model can represent oscillations.
 
 ###  Observations
 - Better generalization  
 - Still mixes all planets together  
-- Fails on long period T=200
+- Fails on long period $T=200$
 
 
 ###  Limitations
@@ -74,14 +72,12 @@ Each planet has its own frequency → a global model is not appropriate.
 
 ###  Intuition
 Use the known period T of each planet and estimate:
-\[
-\text{phase} = t \bmod T
-\]
+$\text{phase} = t \bmod T$
 Then keep a separate mean for each phase.
 
 ###  Observations
-- Strong performance on T=10 and T=20  
-- T=200 extremely sparse → noisy phases
+- Strong performance on $T=10$ and $T=20$
+- $T=200$ extremely sparse → noisy phases
 
 
 ###  Limitations
@@ -97,12 +93,12 @@ Sensitive to noise, no smoothing, weak slope detection.
 - Slope estimation across 5 phases
 - Balanced variance estimation (Welford)
 - UCB using phase uncertainty
-- Improved discovery: heavy sampling for T=200
+- Improved discovery: heavy sampling for $T=200$
 - Robust batch choice: rising → batch=3, stable → batch=2, falling → batch=1
 
 ###  Observations
-- Tracks T=10 and T=20 perfectly  
-- With enough samples, handles T=200 well  
+- Tracks $T=10$ and $T=20$ perfectly  
+- With enough samples, handles $T=200$ well  
 - Very stable behaviour run after run  
 
 
@@ -119,15 +115,13 @@ Sensitive to noise, no smoothing, weak slope detection.
 
 ###  Intuition
 Represent each planet as:
-\[
-p(t) = a_0 + a_c \cos(\omega t) + a_s \sin(\omega t)
-\]
-Use a Kalman filter to estimate θ = (a0, ac, as).
+$p(t) = a_0 + a_c \cos(\omega t) + a_s \sin(\omega t)$
+Use a Kalman filter to estimate $θ = (a0, ac, as)$.
 
 ###  Observations
 - Elegant and mathematically sound  
 - Works well on fast planets  
-- Needs a lot of data for T=200  
+- Needs a lot of data for $T=200$
 - Very sensitive to hyperparameters (Q/R)
 
 
@@ -138,6 +132,6 @@ Use a Kalman filter to estimate θ = (a0, ac, as).
 - R too small → overreact  
 - R too large → slow reaction  
 
-Currently less stable than PeriodStrategyV2.
+Currently less stable than *PeriodStrategyV2*.
 
 ---
